@@ -142,6 +142,56 @@ public class CacheWarmingService {
         redisTemplate.opsForValue().set("category:" + categoryId + ":products", categoryProductIds, 6, TimeUnit.HOURS);
     }
 
+    public Product getProduct(String productId) {
+        String cacheKey = "product:" + productId;
+
+        // cache 퍼스트
+        Product cachedProduct = (Product) redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedProduct != null) {
+            log.info("Cache hit for product: {}", productId);
+            return cachedProduct;
+        }
+
+        log.info("캐시에 상품이 없음: {}, 데이터베이스에서 가져오기", productId);
+
+        simulateDatabaseDelay();
+
+        Product product = productDatabase.get(productId);
+
+        if (product != null) {
+            redisTemplate.opsForValue().set(cacheKey, product, 6, TimeUnit.HOURS);
+            log.info("캐시에 상품 등록 완료: {}", productId);
+        }
+
+        return product;
+    }
+
+    public Category getCategory(String categoryId) {
+        String cacheKey = "category:" + categoryId;
+
+        // cache 퍼스트
+        Category cachedCategory = (Category) redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedCategory != null) {
+            log.info("Cache hit for category: {}", categoryId);
+            return cachedCategory;
+        }
+
+        log.info("캐시에 카테고리가 없음: {}, 데이터베이스에서 가져오기", categoryId);
+
+        simulateDatabaseDelay();
+
+        Category category = categoryDatabase.get(categoryId);
+
+        if (category != null) {
+            redisTemplate.opsForValue().set(cacheKey, category, 1, TimeUnit.DAYS);
+            log.info("캐시에 카테고리 등록 완료: {}", categoryId);
+        }
+
+        return category;
+    }
+
     private void simulateDatabaseDelay() {
         try {
             TimeUnit.MICROSECONDS.sleep(500);
