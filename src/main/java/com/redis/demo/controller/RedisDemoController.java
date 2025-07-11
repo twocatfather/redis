@@ -1,6 +1,8 @@
 package com.redis.demo.controller;
 
 import com.redis.demo.day1.CacheWarmingService;
+import com.redis.demo.day1.RedisDataStructureService;
+import com.redis.demo.day1.SpringCacheService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,21 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class RedisDemoController {
     private final CacheWarmingService cacheWarmingService;
+    private final RedisDataStructureService redisDataStructureService;
+    private final SpringCacheService springCacheService;
+
+    @GetMapping("/day1/data-structures")
+    public ResponseEntity<Map<String, String>> demonstrateDataStructures() {
+        redisDataStructureService.demonstrateStringOperation();
+        redisDataStructureService.demonstrateHashOperation();
+        redisDataStructureService.demonstrateListOperations();
+        redisDataStructureService.demonstrateSetOperations();
+        redisDataStructureService.demonstrateSortedSetOperations();
+
+        Map<String, String> response = new HashMap<>();
+        response.put("message", "Redis data structures demonstration completed. Check server logs for details.");
+        return ResponseEntity.ok(response);
+    }
 
     @GetMapping("/day1/cache-warming")
     public ResponseEntity<Map<String, Object>> demonstrateCacheWarming() {
@@ -27,6 +44,29 @@ public class RedisDemoController {
         response.put("message", "캐시 완료");
         response.put("product", product);
         response.put("category", category);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/day1/spring-cache")
+    public ResponseEntity<Map<String, Object>> demonstrateSpringCache() {
+        // First call - will hit the database
+        SpringCacheService.Product product1 = springCacheService.getProduct(1L);
+
+        // Second call - will hit the cache
+        SpringCacheService.Product product1Again = springCacheService.getProduct(1L);
+
+        // Update the product - will update the cache
+        product1.setStock(product1.getStock() + 10);
+        SpringCacheService.Product updatedProduct = springCacheService.updateProduct(product1);
+
+        // Get available products
+        SpringCacheService.Product availableProduct = springCacheService.getAvailableProduct(2L);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "Spring Cache demonstration completed.");
+        response.put("product", product1);
+        response.put("updatedProduct", updatedProduct);
+        response.put("availableProduct", availableProduct);
         return ResponseEntity.ok(response);
     }
 }

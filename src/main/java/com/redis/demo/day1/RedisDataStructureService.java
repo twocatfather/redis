@@ -33,7 +33,7 @@ public class RedisDataStructureService {
         // 카운트를 증가
         redisTemplate.opsForValue().increment("product:1:view-count");
 
-        String viewCount = (String) redisTemplate.opsForValue().get("product:1:view-count");
+        Object viewCount = redisTemplate.opsForValue().get("product:1:view-count");
         log.info("증가 후 조회수: {}", viewCount);
     }
 
