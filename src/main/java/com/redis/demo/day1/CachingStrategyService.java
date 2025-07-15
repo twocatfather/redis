@@ -7,11 +7,12 @@ import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 /**
  *  - Cache-Aside
- *  - Write-Through
+ *  - Write Through
  *  - Write-Behind
  */
 @Slf4j
@@ -62,6 +63,105 @@ public class CachingStrategyService {
         if (product != null) {
             redisTemplate.opsForValue().set(cacheKey, product, 1, TimeUnit.HOURS);
             log.info("제품 {}을(를) 캐시에 저장함.", productId);
+        }
+
+        return product;
+    }
+
+    public void updateProductCacheAside(Product product) {
+        String productId = product.getId();
+        String cacheKey = "product:" + productId;
+
+        log.info("데이터베이스에서 제품 {} 업데이트중", productId);
+        productDatabase.put(productId, product);
+
+        redisTemplate.delete(cacheKey);
+
+        // redisTemplate.opsForValue().set(cacheKey, product, 1, TimeUnit.Hours);
+    }
+
+    /**
+     * Write-Through 패턴
+     * 1. 데이터베이스를 업데이트
+     * 2. 같은 트랜잭션에서 캐시 업데이트
+     */
+
+    public void updateProductWriteThrough(Product product) {
+        String productId = product.getId();
+        String cacheKey = "product:wt:" + productId;
+
+        log.info("데이터베이스에서 제품 {} 업데이트중", productId);
+        productDatabase.put(productId, product);
+
+//        redisTemplate.delete(cacheKey);
+
+        redisTemplate.opsForValue().set(cacheKey, product, 1, TimeUnit.HOURS);
+    }
+
+    public Product getProductWriteThrough(String productId) {
+        String cacheKey = "product:wt:" + productId;
+
+        Product cachedProduct = (Product) redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedProduct != null) {
+            return cachedProduct;
+        }
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        Product product = productDatabase.get(productId);
+        if (product != null) {
+            redisTemplate.opsForValue().set(cacheKey, product, 1, TimeUnit.HOURS);
+        }
+
+        return product;
+    }
+
+    /**
+     *  Write-Behind
+     *  1. 캐시를 즉시 업데이트
+     *  2. 비동기적으로 데이터베이스에 접근하여 저장
+     */
+    public void updateProductWriteBehind(Product product) {
+        String productId = product.getId();
+        String cacheKey = "product:wb:" + productId;
+
+        redisTemplate.opsForValue().set(cacheKey, product, 1, TimeUnit.HOURS);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                TimeUnit.MILLISECONDS.sleep(500);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+
+            log.info("Write-Behind: 데이터베이스에서 제품 {}의 비동기 업데이트 중", productId);
+            productDatabase.put(productId, product);
+        });
+    }
+
+    public Product getProductWriteBehind(String productId) {
+        String cacheKey = "product:wb:" + productId;
+
+        Product cachedProduct = (Product) redisTemplate.opsForValue().get(cacheKey);
+
+        if (cachedProduct != null) {
+            return cachedProduct;
+        }
+
+        try {
+            TimeUnit.MILLISECONDS.sleep(500);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        Product product = productDatabase.get(productId);
+        if (product != null) {
+            redisTemplate.opsForValue().set(cacheKey, product, 1, TimeUnit.HOURS);
         }
 
         return product;
