@@ -1,5 +1,6 @@
 package com.redis.demo.controller;
 
+import com.redis.demo.day02.DistributedLockService;
 import com.redis.demo.day1.CacheWarmingService;
 import com.redis.demo.day1.RedisDataStructureService;
 import com.redis.demo.day1.SpringCacheService;
@@ -19,6 +20,7 @@ public class RedisDemoController {
     private final CacheWarmingService cacheWarmingService;
     private final RedisDataStructureService redisDataStructureService;
     private final SpringCacheService springCacheService;
+    private final DistributedLockService distributedLockService;
 
     @GetMapping("/day1/data-structures")
     public ResponseEntity<Map<String, String>> demonstrateDataStructures() {
@@ -67,6 +69,29 @@ public class RedisDemoController {
         response.put("product", product1);
         response.put("updatedProduct", updatedProduct);
         response.put("availableProduct", availableProduct);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/day2/distributed-locks")
+    public ResponseEntity<Map<String, Object>> demonstrateDistributedLocks() {
+        distributedLockService.demonstrateBasicLock("resource1");
+
+        String productId = "p1";
+        int initialStock = distributedLockService.getProductStock(productId);
+        boolean decrementResult = distributedLockService.decrementStock(productId, 2);
+        int updatedStock = distributedLockService.getProductStock(productId);
+
+        // critical
+        distributedLockService.performCriticalOperation("daily-report");
+
+        distributedLockService.demonstrateFairLock("resource2");
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "분산락 데모 완료");
+        response.put("productId", productId);
+        response.put("initialStock", initialStock);
+        response.put("decrementResult", decrementResult);
+        response.put("updatedStock", updatedStock);
         return ResponseEntity.ok(response);
     }
 }

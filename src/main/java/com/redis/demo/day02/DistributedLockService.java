@@ -119,32 +119,36 @@ public class DistributedLockService {
     }
 
     public void demonstrateFairLock(String resourceId) {
-        String lockName = "operation:lock:" + resourceId;
-        RLock lock = redissonClient.getLock(lockName);
+        String lockName = "fair:lock:" + resourceId;
+        RLock lock = redissonClient.getFairLock(lockName);
 
         try {
-            boolean isLocked = lock.tryLock(5, 30, TimeUnit.SECONDS);
+            boolean isLocked = lock.tryLock(5, 10, TimeUnit.SECONDS);
 
             if (isLocked) {
                 try {
-                    log.info("Operation Lock 획득: {}", resourceId);
+                    log.info("fair Lock 획득: {}", resourceId);
 
-                    log.info("Starting Critical Operation: {}", resourceId);
-                    TimeUnit.SECONDS.sleep(10);
-                    log.info("Completed Critical Operation: {}", resourceId);
+
+                    TimeUnit.SECONDS.sleep(2);
+                    log.info("fair Lock 얻은 후 작업 완료: {}", resourceId);
                 } catch (InterruptedException e) {
-                    log.info("Critical Operation interrupted: {}", resourceId);
                     Thread.currentThread().interrupt();
                 } finally {
                     lock.unlock();
-                    log.info("Operation lock 해제: {}", resourceId);
+                    log.info("fair lock 해제: {}", resourceId);
                 }
             } else {
-                log.info("Critical Operation already running: {}", resourceId);
+                log.info("락을 얻지 못했습니다: {}", resourceId);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    public int getProductStock(String productId) {
+        Product product = productInventory.get(productId);
+        return product != null ? product.getStock() : -1;
     }
 
     @NoArgsConstructor
