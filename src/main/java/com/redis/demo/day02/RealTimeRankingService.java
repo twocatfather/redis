@@ -127,6 +127,52 @@ public class RealTimeRankingService {
         return reverseRank != null ? reverseRank : -1;
     }
 
+    /**
+     * 리더보드에서 특정 사용자 주변의 사용자들을 가져옵니다.
+     *
+     * @param userId 사용자의 ID
+     * @param range 위아래로 포함할 사용자 수
+     * @return 사용자 ID와 점수 목록
+     */
+    public List<RankedItem> getUsersAroundInLeaderboard(String userId, int range) {
+        Long userRank = redisTemplate.opsForZSet().reverseRank(LEADERBOARD_KEY, userId);
+
+        if (userRank == null) {
+            log.warn("User not found in leaderboard: {}", userId);
+            return Collections.emptyList();
+        }
+
+        // Calculate the range of ranks to retrieve
+        long startRank = Math.max(0, userRank - range);
+        long endRank = userRank + range;
+
+        Set<ZSetOperations.TypedTuple<Object>> usersAround =
+                redisTemplate.opsForZSet().reverseRangeWithScores(LEADERBOARD_KEY, startRank, endRank);
+
+        return convertToRankedItems(usersAround);
+    }
+
+    /**
+     * 특정 날짜의 가장 인기 있는 제품을 가져옵니다.
+     *
+     * @param date YYYY-MM-DD 형식의 날짜
+     * @param limit 반환할 최대 제품 수
+     * @return 제품 ID와 조회수 목록
+     */
+    public List<RankedItem> getMostPopularProductsByDay(String date, int limit) {
+        String dailyKey = PRODUCT_VIEWS_DAILY_KEY + date;
+
+        if (!Boolean.TRUE.equals(redisTemplate.hasKey(dailyKey))) {
+            log.warn("No data available for date: {}", date);
+            return Collections.emptyList();
+        }
+
+        Set<ZSetOperations.TypedTuple<Object>> popularProducts =
+                redisTemplate.opsForZSet().reverseRangeWithScores(dailyKey, 0, limit - 1);
+
+        return convertToRankedItems(popularProducts);
+    }
+
     @RequiredArgsConstructor
     @Getter
     @ToString
