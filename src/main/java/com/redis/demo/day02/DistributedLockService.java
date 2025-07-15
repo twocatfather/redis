@@ -51,6 +51,102 @@ public class DistributedLockService {
         }
     }
 
+    public boolean decrementStock(String productId, int quantity) {
+        String lockName = "inventory:lock:" + productId;
+        RLock lock = redissonClient.getLock(lockName);
+
+        try {
+            boolean isLocked = lock.tryLock(5, 10, TimeUnit.SECONDS);
+
+            if (isLocked) {
+                try {
+                    Product product = productInventory.get(productId);
+
+                    if (product == null) {
+                        return false;
+                    }
+
+                    if (product.getStock() < quantity) {
+                        return false;
+                    }
+
+                    TimeUnit.MILLISECONDS.sleep(500);
+
+                    product.setStock(product.getStock() - quantity);
+                    return true;
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                } finally {
+                    lock.unlock();
+                }
+            } else {
+                return false;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
+        }
+    }
+
+    public void performCriticalOperation(String operationId) {
+        String lockName = "operation:lock:" + operationId;
+        RLock lock = redissonClient.getLock(lockName);
+
+        try {
+            boolean isLocked = lock.tryLock(5, 30, TimeUnit.SECONDS);
+
+            if (isLocked) {
+                try {
+                    log.info("Operation Lock 획득: {}", operationId);
+
+                    log.info("Starting Critical Operation: {}", operationId);
+                    TimeUnit.SECONDS.sleep(10);
+                    log.info("Completed Critical Operation: {}", operationId);
+                } catch (InterruptedException e) {
+                    log.info("Critical Operation interrupted: {}", operationId);
+                    Thread.currentThread().interrupt();
+                } finally {
+                    lock.unlock();
+                    log.info("Operation lock 해제: {}", operationId);
+                }
+            } else {
+                log.info("Critical Operation already running: {}", operationId);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public void demonstrateFairLock(String resourceId) {
+        String lockName = "operation:lock:" + resourceId;
+        RLock lock = redissonClient.getLock(lockName);
+
+        try {
+            boolean isLocked = lock.tryLock(5, 30, TimeUnit.SECONDS);
+
+            if (isLocked) {
+                try {
+                    log.info("Operation Lock 획득: {}", resourceId);
+
+                    log.info("Starting Critical Operation: {}", resourceId);
+                    TimeUnit.SECONDS.sleep(10);
+                    log.info("Completed Critical Operation: {}", resourceId);
+                } catch (InterruptedException e) {
+                    log.info("Critical Operation interrupted: {}", resourceId);
+                    Thread.currentThread().interrupt();
+                } finally {
+                    lock.unlock();
+                    log.info("Operation lock 해제: {}", resourceId);
+                }
+            } else {
+                log.info("Critical Operation already running: {}", resourceId);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     @NoArgsConstructor
     @AllArgsConstructor
     @Getter
